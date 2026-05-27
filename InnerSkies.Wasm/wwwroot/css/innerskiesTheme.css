@@ -1,0 +1,54 @@
+/* innerskies-theme.css
+   Thin brand layer on top of Bootstrap 5.3. Link this AFTER bootstrap.min.css.
+
+   The InnerSkies blue (#2563eb, matching the wheel overlay highlight) is the default
+   accent. Inside an emotion row, a `--row-emotion-color` custom property is set inline
+   (in EmotionSlider) to that emotion's current intensity color, and the switch track +
+   slider thumb pick it up — so those fills recolor live as the slider moves between
+   intensities. Anywhere `--row-emotion-color` is absent, the controls fall back to the
+   brand blue. */
+
+:root {
+  --is-primary: #2563eb;
+  --is-primary-strong: #1d4ed8;
+
+  /* Bootstrap runtime variables — cascade to .text-primary, .btn-primary, links, etc. */
+  --bs-primary: var(--is-primary);
+  --bs-primary-rgb: 37, 99, 235;
+  --bs-link-color: var(--is-primary);
+  --bs-link-color-rgb: 37, 99, 235;
+  --bs-link-hover-color: var(--is-primary-strong);
+  --bs-focus-ring-color: rgba(37, 99, 235, .25);
+}
+
+/* The accent used by colorable controls — overridden per row via --row-emotion-color. */
+.form-range,
+.form-check-input {
+  --is-accent: var(--row-emotion-color, var(--is-primary));
+}
+
+/* Range thumb (Bootstrap bakes its color into compiled CSS, so set the vendor
+   pseudo-elements explicitly). */
+.form-range::-webkit-slider-thumb { background-color: var(--is-accent); }
+.form-range::-webkit-slider-thumb:active { filter: brightness(1.12); }
+.form-range::-moz-range-thumb { background-color: var(--is-accent); border: 0; }
+.form-range::-moz-range-thumb:active { filter: brightness(1.12); }
+
+.form-range:focus::-webkit-slider-thumb {
+  box-shadow: 0 0 0 1px #fff,
+              0 0 0 .25rem color-mix(in srgb, var(--is-accent) 32%, transparent);
+}
+.form-range:focus::-moz-range-thumb {
+  box-shadow: 0 0 0 1px #fff,
+              0 0 0 .25rem color-mix(in srgb, var(--is-accent) 32%, transparent);
+}
+
+/* Switch in the "on" state takes the row's current intensity color. */
+.form-check-input:checked {
+  background-color: var(--is-accent);
+  border-color: var(--is-accent);
+}
+.form-check-input:focus {
+  border-color: color-mix(in srgb, var(--is-accent) 55%, #fff);
+  box-shadow: 0 0 0 .25rem color-mix(in srgb, var(--is-accent) 30%, transparent);
+}

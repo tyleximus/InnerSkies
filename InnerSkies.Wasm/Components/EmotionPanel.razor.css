@@ -1,0 +1,24 @@
+/* Scoped tweaks on top of Bootstrap. Structure/spacing come from Bootstrap classes;
+   this file only carries the brand refinements. One emotion per row. */
+
+.emotion-panel {
+    max-width: 1400px;          /* line the card up with the wheel above */
+    border-radius: 16px;
+    overflow: hidden;           /* clip the header tint to the rounded corners */
+}
+
+/* Sky-tinted header so the panel reads as InnerSkies rather than stock Bootstrap. */
+.emotion-panel__header {
+    background: linear-gradient(180deg, #eef4ff 0%, #ffffff 100%);
+    padding-top: 1.1rem;
+    padding-bottom: 1.1rem;
+}
+
+.emotion-panel__name {
+    min-width: 18rem;
+}
+
+/* Drop the trailing divider on the last emotion row for a clean card edge. */
+::deep .emotion-row:last-child {
+    border-bottom: 0 !important;
+}

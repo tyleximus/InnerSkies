@@ -1,0 +1,64 @@
+@using InnerSkies.Wasm.Models
+
+@* One emotion per row: toggle + label, then a slider whose three labels are that
+   emotion's named intensities. The selected intensity is highlighted in dark/bold
+   text; the switch + slider thumb take the emotion's current intensity color via the
+   --row-emotion-color custom property (set inline below). *@
+<div class="row align-items-center gx-3 gy-2 py-2 emotion-row @(Enabled ? null : "emotion-row--off")"
+     style="--row-emotion-color:@CurrentColor;">
+
+    <div class="col-12 col-md-3">
+        <div class="form-check form-switch mb-0 ps-0 emotion-row__toggle">
+            <input class="form-check-input ms-0 me-2" type="checkbox" role="switch"
+                   id="@SwitchId" checked="@Enabled" @onchange="OnToggleChanged" />
+            <label class="form-check-label fw-semibold @(Enabled ? "text-body" : "text-secondary")"
+                   for="@SwitchId">
+                @Label
+            </label>
+        </div>
+    </div>
+
+    <div class="col">
+        <input type="range" class="form-range" min="0" max="2" step="1"
+               value="@((int)Level)" disabled="@(!Enabled)"
+               aria-label="@($"{Label} intensity")"
+               @oninput="OnRangeInput" />
+        <div class="emotion-row__ticks">
+            <span class="emotion-row__tick @TickClass(IntensityLevel.Mild)">@LevelNames[0]</span>
+            <span class="emotion-row__tick @TickClass(IntensityLevel.Base)">@LevelNames[1]</span>
+            <span class="emotion-row__tick @TickClass(IntensityLevel.Intense)">@LevelNames[2]</span>
+        </div>
+    </div>
+</div>
+
+@code {
+    [Parameter, EditorRequired] public string EmotionId { get; set; } = default!;
+    [Parameter, EditorRequired] public string Label { get; set; } = default!;
+    [Parameter] public bool Enabled { get; set; }
+    [Parameter] public IntensityLevel Level { get; set; } = IntensityLevel.Base;
+
+    /// <summary>The three level names (0=Mild, 1=Base, 2=Intense), shown as the slider labels.</summary>
+    [Parameter, EditorRequired] public string[] LevelNames { get; set; } = default!;
+
+    /// <summary>The three fill colors (0=Mild, 1=Base, 2=Intense) for the switch + thumb.</summary>
+    [Parameter, EditorRequired] public string[] LevelColors { get; set; } = default!;
+
+    [Parameter] public EventCallback<bool> EnabledChanged { get; set; }
+    [Parameter] public EventCallback<IntensityLevel> LevelChanged { get; set; }
+
+    private string SwitchId => $"switch-{EmotionId}";
+    private string CurrentColor => LevelColors[(int)Level];
+
+    // Highlight the selected intensity with weight + dark text (never the light fill color).
+    private string? TickClass(IntensityLevel l) => Enabled && l == Level ? "is-current" : null;
+
+    private Task OnToggleChanged(ChangeEventArgs e) =>
+        EnabledChanged.InvokeAsync((bool)(e.Value ?? false));
+
+    private Task OnRangeInput(ChangeEventArgs e)
+    {
+        if (int.TryParse(e.Value?.ToString(), out var raw))
+            return LevelChanged.InvokeAsync((IntensityLevel)raw);
+        return Task.CompletedTask;
+    }
+}

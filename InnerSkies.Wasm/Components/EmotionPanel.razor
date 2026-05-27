@@ -1,0 +1,52 @@
+@implements IDisposable
+@inject EmotionStateService State
+
+@using InnerSkies.Wasm.Data
+@using InnerSkies.Wasm.Models
+@using InnerSkies.Wasm.Services
+
+<section class="card border-0 shadow-sm emotion-panel mx-auto">
+    <header class="card-header emotion-panel__header border-0">
+        <div class="row align-items-end g-3">
+            <div class="col-12 col-sm">
+                <h2 class="h5 fw-semibold mb-1">Emotion</h2>
+                <p class="text-secondary small mb-0">
+                    Name this emotion, then enable and tune the base emotions that compose it.
+                </p>
+            </div>
+            <div class="col-12 col-sm-auto emotion-panel__name">
+                <label for="emotionName"
+                       class="form-label small fw-semibold text-uppercase text-secondary mb-1">
+                    Name
+                </label>
+                <input id="emotionName" type="text" class="form-control form-control-lg"
+                       placeholder="Name this emotion…"
+                       value="@State.Name" @oninput="OnNameInput" />
+            </div>
+        </div>
+    </header>
+
+    <div class="card-body pt-1 pb-2">
+        @foreach (var c in State.Components)
+        {
+            <EmotionSlider EmotionId="@c.Id"
+                           Label="@c.Label"
+                           Enabled="@c.Enabled"
+                           Level="@c.Level"
+                           LevelNames="@PlutchikData.LevelNames(c.Id)"
+                           LevelColors="@PlutchikData.LevelColors(c.Id)"
+                           EnabledChanged="@(enabled => State.ToggleComponent(c.Id, enabled))"
+                           LevelChanged="@(level => State.SetLevel(c.Id, level))" />
+        }
+    </div>
+</section>
+
+@code {
+    protected override void OnInitialized() => State.OnChange += OnStateChanged;
+
+    private void OnStateChanged() => InvokeAsync(StateHasChanged);
+
+    private void OnNameInput(ChangeEventArgs e) => State.Rename(e.Value?.ToString() ?? string.Empty);
+
+    public void Dispose() => State.OnChange -= OnStateChanged;
+}

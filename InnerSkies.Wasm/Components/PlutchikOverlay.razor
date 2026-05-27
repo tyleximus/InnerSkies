@@ -1,0 +1,82 @@
+@implements IAsyncDisposable
+@inject IJSRuntime JS
+@inject EmotionStateService State
+
+@using Microsoft.JSInterop
+@using InnerSkies.Wasm.Models
+@using InnerSkies.Wasm.Services
+
+<div class="plutchik-toolbar">
+    <strong>Clickable Plutchik map</strong>
+    <label>
+        <input @ref="_toggleEl" type="checkbox" /> show tap regions
+    </label>
+</div>
+
+<div class="plutchik-wrap">
+    <div @ref="_stageEl" class="stage" aria-label="Clickable Plutchik emotion dyad map">
+        <img src="img/plutchik-wheel-of-emotion-dyads-web.webp" alt="Plutchik's Emotion Dyads" />
+        <svg @ref="_overlayEl" viewBox="0 0 1400 1400" role="img"
+             aria-label="Clickable emotion regions" preserveAspectRatio="xMidYMid meet"></svg>
+    </div>
+    <p class="plutchik-hint">
+        Tap a dyad to seed both of its emotions at their base level. Tap a base emotion
+        to reveal its mild / base / intense circles, then tap one to seed that single
+        emotion at the chosen intensity. Every selection resets the panel below; refine
+        it from there.
+    </p>
+</div>
+
+@code {
+    private ElementReference _overlayEl;
+    private ElementReference _stageEl;
+    private ElementReference _toggleEl;
+
+    private IJSObjectReference? _module;       // the imported plutchikOverlay.js module
+    private IJSObjectReference? _controller;    // the { dispose } handle returned by init()
+    private DotNetObjectReference<PlutchikOverlay>? _selfRef;
+
+    protected override async Task OnAfterRenderAsync(bool firstRender)
+    {
+        if (!firstRender) return;
+
+        _selfRef = DotNetObjectReference.Create(this);
+        _module = await JS.InvokeAsync<IJSObjectReference>("import", "./js/plutchikOverlay.js");
+        _controller = await _module.InvokeAsync<IJSObjectReference>(
+            "init", _overlayEl, _stageEl, _toggleEl, _selfRef);
+    }
+
+    // --- Called from JS (plutchikOverlay.js) -------------------------------------------
+
+    [JSInvokable]
+    public void OnDyadSelected(string dyadId) => State.SelectDyad(dyadId);
+
+    [JSInvokable]
+    public void OnIntensitySelected(string baseId, string kind)
+    {
+        var level = kind switch
+        {
+            "mild" => IntensityLevel.Mild,
+            "intense" => IntensityLevel.Intense,
+            _ => IntensityLevel.Base
+        };
+        State.SelectIntensity(baseId, level);
+    }
+
+    public async ValueTask DisposeAsync()
+    {
+        try
+        {
+            if (_controller is not null)
+            {
+                await _controller.InvokeVoidAsync("dispose");
+                await _controller.DisposeAsync();
+            }
+            if (_module is not null)
+                await _module.DisposeAsync();
+        }
+        catch (JSDisconnectedException) { /* circuit/page already gone */ }
+
+        _selfRef?.Dispose();
+    }
+}

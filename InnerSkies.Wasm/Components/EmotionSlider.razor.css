@@ -1,0 +1,39 @@
+/* Scoped tweaks on top of Bootstrap for a single emotion row (one emotion per row). */
+
+.emotion-row {
+    border-bottom: 1px solid var(--bs-border-color-translucent);
+    transition: opacity .15s ease;
+}
+
+/* Disabled rows fade back but the switch stays fully usable. */
+.emotion-row--off {
+    opacity: .72;
+}
+
+/* Three labels laid out so the CENTER (base) word sits exactly at the slider midpoint.
+   A 1fr/1fr/1fr grid centers the middle column at 50% of the track regardless of the
+   words' differing widths; the outer two hug the track ends. */
+.emotion-row__ticks {
+    display: grid;
+    grid-template-columns: 1fr 1fr 1fr;
+    align-items: baseline;
+    margin-top: .35rem;
+    font-size: .72rem;
+    letter-spacing: .01em;
+    line-height: 1.1;
+}
+
+.emotion-row__tick {
+    color: var(--bs-secondary-color);
+    transition: color .12s ease, font-weight .12s ease;
+}
+
+.emotion-row__tick:nth-child(1) { text-align: start; }
+.emotion-row__tick:nth-child(2) { text-align: center; }  /* base -> centered on the slider */
+.emotion-row__tick:nth-child(3) { text-align: end; }
+
+/* Selected intensity: dark + bold (never the light fill color, so it stays legible). */
+.emotion-row__tick.is-current {
+    color: var(--bs-emphasis-color);
+    font-weight: 700;
+}
