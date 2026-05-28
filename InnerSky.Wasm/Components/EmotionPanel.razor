@@ -1,5 +1,6 @@
 @implements IDisposable
 @inject EmotionStateService State
+@inject EmotionProfilesApiClient ApiClient
 @inject IJSRuntime JS
 
 @using InnerSky.Wasm.Data
@@ -144,14 +145,13 @@
         !string.IsNullOrWhiteSpace(State.Name)
         && State.Components.Any(c => c.Enabled);
 
-    private List<MomentSummary> ExistingMoments { get; } =
-    [
-        new(1, "Morning reflection", DateTime.Now.AddHours(-4), ["Calm + Trust", "Hopeful Shift"]),
-        new(2, "Team sync prep", DateTime.Now.AddDays(-1).AddHours(-2), ["Focused Resolve"]),
-        new(3, "Evening unwind", DateTime.Now.AddDays(-2).AddHours(-5), ["Gratitude Blend", "Tired + Peaceful"])
-    ];
+    private List<MomentSummary> ExistingMoments { get; set; } = [];
 
-    protected override void OnInitialized() => State.OnChange += OnStateChanged;
+    protected override async Task OnInitializedAsync()
+    {
+        State.OnChange += OnStateChanged;
+        await RefreshMoments();
+    }
 
     private void OnStateChanged() => InvokeAsync(StateHasChanged);
 
@@ -184,17 +184,42 @@
 
     private async Task SubmitNewMoment()
     {
+        var profile = State.ToProfile();
+        var created = await ApiClient.CreateAsync(profile);
+
+        if (created is not null)
+        {
+            ExistingMoments.Insert(0, new MomentSummary(created.Id, string.IsNullOrWhiteSpace(NewMomentTitle) ? created.Name : NewMomentTitle, NewMomentDateTimeLocal, [created.Name]));
+        }
+
         IsCreateMomentModalOpen = false;
-        await JS.InvokeVoidAsync("alert", "added");
+        await JS.InvokeVoidAsync("alert", "Blend saved to API and attached to a new moment.");
     }
 
-    private async Task AddToExistingMoment(int _)
+    private async Task AddToExistingMoment(Guid momentId)
     {
+        var profile = State.ToProfile();
+        var created = await ApiClient.CreateAsync(profile);
+
+        var moment = ExistingMoments.FirstOrDefault(x => x.Id == momentId);
+        if (created is not null && moment is not null)
+        {
+            moment.BlendNames.Add(created.Name);
+        }
+
         IsExistingMomentModalOpen = false;
-        await JS.InvokeVoidAsync("alert", "added");
+        await JS.InvokeVoidAsync("alert", "Blend saved to API and added to the selected moment.");
+    }
+
+    private async Task RefreshMoments()
+    {
+        var profiles = await ApiClient.ListAsync();
+        ExistingMoments = profiles
+            .Select(p => new MomentSummary(p.Id, p.Name, p.CreatedUtc.ToLocalTime(), [p.Name]))
+            .ToList();
     }
 
     public void Dispose() => State.OnChange -= OnStateChanged;
 
-    private sealed record MomentSummary(int Id, string Title, DateTime DateTime, IReadOnlyList<string> BlendNames);
+    private sealed record MomentSummary(Guid Id, string Title, DateTime DateTime, List<string> BlendNames);
 }

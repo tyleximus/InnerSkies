@@ -70,6 +70,25 @@ public sealed class EmotionProfilesController(InnerSkyDbContext db) : Controller
             profile.Components.Select(c => new EmotionProfileComponentResponse(c.EmotionId, c.IntensityLevel)).ToList());
     }
 
+    [HttpGet]
+    public async Task<ActionResult<IReadOnlyList<EmotionProfileResponse>>> List(CancellationToken cancellationToken)
+    {
+        var profiles = await db.EmotionProfiles
+            .AsNoTracking()
+            .Include(x => x.Components)
+            .OrderByDescending(x => x.CreatedUtc)
+            .Take(50)
+            .ToListAsync(cancellationToken);
+
+        return profiles
+            .Select(profile => new EmotionProfileResponse(
+                profile.Id,
+                profile.Name,
+                profile.CreatedUtc,
+                profile.Components.Select(c => new EmotionProfileComponentResponse(c.EmotionId, c.IntensityLevel)).ToList()))
+            .ToList();
+    }
+
     private ActionResult ValidationProblem(string detail)
     {
         ModelState.AddModelError("request", detail);
