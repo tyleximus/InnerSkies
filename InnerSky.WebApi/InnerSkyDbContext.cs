@@ -33,6 +33,8 @@ public sealed class InnerSkyDbContext(DbContextOptions<InnerSkyDbContext> option
             entity.Property(x => x.Name).HasMaxLength(200).IsRequired();
             entity.Property(x => x.CreatedUtc).HasColumnType("datetime2(0)").IsRequired();
             entity.Property(x => x.MomentId).IsRequired();
+            entity.Property(x => x.SortOrder).IsRequired();
+            entity.HasIndex(x => new { x.MomentId, x.SortOrder });
             entity.HasMany(x => x.Components)
                 .WithOne(x => x.Profile)
                 .HasForeignKey(x => x.ProfileId)
