@@ -34,7 +34,7 @@ if (app.Environment.IsDevelopment())
 }
 
 app.UseHttpsRedirection();
-app.UseCors(WasmCorsPolicy);
+//app.UseCors(WasmCorsPolicy);
 app.UseAuthorization();
 app.MapControllers();
 app.Run();
