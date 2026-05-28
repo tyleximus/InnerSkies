@@ -1,4 +1,4 @@
-namespace InnerSkies.Wasm.Models;
+namespace InnerSky.Wasm.Models;
 
 /// <summary>
 /// One of the eight base-emotion rows in the panel. <see cref="Level"/> is always

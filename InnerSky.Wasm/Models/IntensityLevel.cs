@@ -1,4 +1,4 @@
-namespace InnerSkies.Wasm.Models;
+namespace InnerSky.Wasm.Models;
 
 /// <summary>
 /// The three intensity stops a base emotion can take. Backed by 0/1/2 so it maps

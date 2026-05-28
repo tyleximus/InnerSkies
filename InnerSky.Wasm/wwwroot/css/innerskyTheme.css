@@ -1,7 +1,7 @@
-/* innerskies-theme.css
+/* innersky-theme.css
    Thin brand layer on top of Bootstrap 5.3. Link this AFTER bootstrap.min.css.
 
-   The InnerSkies blue (#2563eb, matching the wheel overlay highlight) is the default
+   The InnerSky blue (#2563eb, matching the wheel overlay highlight) is the default
    accent. Inside an emotion row, a `--row-emotion-color` custom property is set inline
    (in EmotionSlider) to that emotion's current intensity color, and the switch track +
    slider thumb pick it up — so those fills recolor live as the slider moves between

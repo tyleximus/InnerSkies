@@ -1,7 +1,7 @@
-using InnerSkies.Wasm.Data;
-using InnerSkies.Wasm.Models;
+using InnerSky.Wasm.Data;
+using InnerSky.Wasm.Models;
 
-namespace InnerSkies.Wasm.Services;
+namespace InnerSky.Wasm.Services;
 
 /// <summary>
 /// The single owner of the panel's state. All the selection rules live here (not in

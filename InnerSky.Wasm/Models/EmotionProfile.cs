@@ -1,4 +1,4 @@
-namespace InnerSkies.Wasm.Models;
+namespace InnerSky.Wasm.Models;
 
 /// <summary>
 /// The shape that will eventually be POSTed to the WebAPI. Per the design decision,

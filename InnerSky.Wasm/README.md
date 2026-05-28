@@ -1,4 +1,4 @@
-# InnerSkies.Wasm — Plutchik Emotion panel (Blazor WASM, Approach B)
+# InnerSky.Wasm — Plutchik Emotion panel (Blazor WASM, Approach B)
 
 Drop-in components that add the **Emotion** panel beneath your existing calibrated
 Plutchik image. The image overlay is rendered by a JS-interop module that is a
@@ -37,13 +37,13 @@ EmotionPanel.razor  ──► EmotionSlider.razor × 8   (presentational; params
 
 ## Wiring it up
 
-1. **Namespace** — everything uses the root namespace `InnerSkies.Wasm`. If your
-   project differs, do a find/replace on `InnerSkies.Wasm` (in the `.cs` files and the
+1. **Namespace** — everything uses the root namespace `InnerSky.Wasm`. If your
+   project differs, do a find/replace on `InnerSky.Wasm` (in the `.cs` files and the
    `@using` lines of the `.razor` files), or move the files under a matching folder.
 
 2. **Register the service** (scoped) in `Program.cs`:
    ```csharp
-   builder.Services.AddScoped<InnerSkies.Wasm.Services.EmotionStateService>();
+   builder.Services.AddScoped<InnerSky.Wasm.Services.EmotionStateService>();
    ```
    Scoped (not singleton) so each user/session starts with a clean panel; in WASM
    scoped behaves like singleton-per-app, which is what you want here.
@@ -56,8 +56,8 @@ EmotionPanel.razor  ──► EmotionSlider.razor × 8   (presentational; params
    <link rel="stylesheet"
          href="https://cdn.jsdelivr.net/npm/bootstrap@5.3.3/dist/css/bootstrap.min.css" />
 
-   <!-- InnerSkies brand layer — MUST load after Bootstrap so its overrides win -->
-   <link rel="stylesheet" href="css/innerskies-theme.css" />
+   <!-- InnerSky brand layer — MUST load after Bootstrap so its overrides win -->
+   <link rel="stylesheet" href="css/innersky-theme.css" />
 
    <!-- Plutchik wheel overlay styles -->
    <link rel="stylesheet" href="css/plutchikOverlay.css" />
@@ -70,7 +70,7 @@ EmotionPanel.razor  ──► EmotionSlider.razor × 8   (presentational; params
    and badges are CSS-only. Add `bootstrap.bundle.min.js` before `</body>` only if you
    later use JS-driven components (tooltips, dropdowns, modals).
 
-   `innerskies-theme.css` and `plutchikOverlay.css` are intentionally **not** Blazor
+   `innersky-theme.css` and `plutchikOverlay.css` are intentionally **not** Blazor
    scoped CSS: the theme overrides Bootstrap globally, and the overlay's `.tap-zone` /
    `.intensity-*` elements are injected into the SVG at runtime and wouldn't carry a
    scope attribute. (`EmotionPanel` and `EmotionSlider` still use normal scoped
@@ -82,10 +82,10 @@ EmotionPanel.razor  ──► EmotionSlider.razor × 8   (presentational; params
 
 5. **(Optional) `_Imports.razor`** — to drop the per-file `@using` lines you can add:
    ```razor
-   @using InnerSkies.Wasm.Components
-   @using InnerSkies.Wasm.Models
-   @using InnerSkies.Wasm.Services
-   @using InnerSkies.Wasm.Data
+   @using InnerSky.Wasm.Components
+   @using InnerSky.Wasm.Models
+   @using InnerSky.Wasm.Services
+   @using InnerSky.Wasm.Data
    ```
 
 6. Browse to **`/emotion-builder`** (route defined in `Pages/EmotionBuilder.razor`).
@@ -104,7 +104,7 @@ Components/EmotionSlider.razor    reusable per-emotion slider row
 Pages/EmotionBuilder.razor        composes overlay + panel at /emotion-builder
 wwwroot/js/plutchikOverlay.js     ported overlay logic (calibration preserved)
 wwwroot/css/plutchikOverlay.css   ported overlay styles (global, non-scoped)
-wwwroot/css/innerskies-theme.css  Bootstrap brand override (global; load after Bootstrap)
+wwwroot/css/innersky-theme.css  Bootstrap brand override (global; load after Bootstrap)
 wwwroot/img/...webp               the wheel image
 ```
 

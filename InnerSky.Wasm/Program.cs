@@ -1,4 +1,4 @@
-using InnerSkies.Wasm;
+using InnerSky.Wasm;
 using Microsoft.AspNetCore.Components.Web;
 using Microsoft.AspNetCore.Components.WebAssembly.Hosting;
 
@@ -8,6 +8,6 @@ builder.RootComponents.Add<HeadOutlet>("head::after");
 
 builder.Services.AddScoped(sp => new HttpClient { BaseAddress = new Uri(builder.HostEnvironment.BaseAddress) });
 
-builder.Services.AddScoped<InnerSkies.Wasm.Services.EmotionStateService>();
+builder.Services.AddScoped<InnerSky.Wasm.Services.EmotionStateService>();
 
 await builder.Build().RunAsync();

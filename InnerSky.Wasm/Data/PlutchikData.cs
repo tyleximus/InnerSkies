@@ -1,6 +1,6 @@
-using InnerSkies.Wasm.Models;
+using InnerSky.Wasm.Models;
 
-namespace InnerSkies.Wasm.Data;
+namespace InnerSky.Wasm.Data;
 
 /// <summary>
 /// Canonical, non-visual data for the model layer: the eight base emotions (in wheel
