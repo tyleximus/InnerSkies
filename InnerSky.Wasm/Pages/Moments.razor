@@ -1,0 +1,473 @@
+@page "/moments"
+@implements IDisposable
+@inject EmotionProfilesApiClient ApiClient
+@inject IJSRuntime JS
+
+@using InnerSky.Wasm.Data
+@using InnerSky.Wasm.Models
+@using InnerSky.Wasm.Services
+
+<PageTitle>Moments</PageTitle>
+
+<div class="moments-page mx-auto">
+    <header class="moments-page__head mb-3">
+        <h1 class="h3 fw-bold mb-1">Moments</h1>
+        <p class="text-secondary mb-0">Browse, refine, and curate the snapshots you've captured.</p>
+    </header>
+
+    <section class="moments-filters card border-0 shadow-sm mb-4">
+        <div class="card-body">
+            <div class="row g-3 align-items-end">
+                <div class="col-12 col-lg-5">
+                    <label class="form-label fw-semibold small text-secondary" for="momentSearch">Search</label>
+                    <input id="momentSearch" class="form-control" type="search"
+                           placeholder="Title, comment, or blend name…"
+                           value="@_search" @oninput="OnSearchInput" />
+                </div>
+                <div class="col-6 col-lg-3">
+                    <label class="form-label fw-semibold small text-secondary" for="momentFrom">From</label>
+                    <input id="momentFrom" class="form-control" type="date" value="@FormatDate(_from)" @onchange="OnFromChanged" />
+                </div>
+                <div class="col-6 col-lg-3">
+                    <label class="form-label fw-semibold small text-secondary" for="momentTo">To</label>
+                    <input id="momentTo" class="form-control" type="date" value="@FormatDate(_to)" @onchange="OnToChanged" />
+                </div>
+                <div class="col-12 col-lg-1 d-grid">
+                    <button class="btn btn-outline-secondary" type="button" @onclick="ClearFilters"
+                            disabled="@(!HasActiveFilters)">Clear</button>
+                </div>
+            </div>
+
+            <div class="mt-3">
+                <span class="form-label fw-semibold small text-secondary d-block mb-1">Emotions present</span>
+                <div class="d-flex flex-wrap gap-2">
+                    @foreach (var (id, label) in PlutchikData.BaseEmotions)
+                    {
+                        var active = _emotions.Contains(id);
+                        var color = PlutchikData.LevelColor(id, IntensityLevel.Base);
+                        <button type="button"
+                                class="emotion-filter @(active ? "is-active" : null)"
+                                style="--chip:@color;"
+                                @onclick="() => ToggleEmotion(id)">
+                            <span class="emotion-dot"></span>@label
+                        </button>
+                    }
+                </div>
+            </div>
+        </div>
+    </section>
+
+    @if (_loading)
+    {
+        <p class="text-secondary">Loading moments…</p>
+    }
+    else if (_moments.Count == 0)
+    {
+        <div class="moments-empty text-center text-secondary py-5">
+            <p class="mb-1 fw-semibold">No moments yet.</p>
+            <p class="mb-0">Build an emotion blend and save it to a moment to see it here.</p>
+        </div>
+    }
+    else if (Filtered.Count == 0)
+    {
+        <div class="moments-empty text-center text-secondary py-5">
+            <p class="mb-1 fw-semibold">No moments match your filters.</p>
+            <button class="btn btn-link p-0" type="button" @onclick="ClearFilters">Clear filters</button>
+        </div>
+    }
+    else
+    {
+        <div class="row g-3">
+            @foreach (var m in Paged)
+            {
+                <div class="col-12 col-md-6 col-xl-4">
+                    <button type="button" class="moment-card" style="--accent:@AccentColor(m);" @onclick="() => OpenEditor(m)">
+                        <div class="moment-card__head">
+                            <h2 class="moment-card__title">@m.Title</h2>
+                            <time class="moment-card__date">@m.MomentLocal.ToString("MMM d, yyyy · h:mm tt")</time>
+                        </div>
+                        @if (!string.IsNullOrWhiteSpace(m.Comment))
+                        {
+                            <p class="moment-card__comment">@m.Comment</p>
+                        }
+                        <div class="moment-card__blends">
+                            @if (m.Blends.Count == 0)
+                            {
+                                <span class="moment-card__empty">No blends</span>
+                            }
+                            else
+                            {
+                                @foreach (var b in m.Blends)
+                                {
+                                    <span class="blend-pill" style="--dot:@BlendColor(b);">
+                                        <span class="blend-pill__dot"></span>@b.Name
+                                    </span>
+                                }
+                            }
+                        </div>
+                    </button>
+                </div>
+            }
+        </div>
+
+        <div class="moments-pager d-flex flex-wrap align-items-center justify-content-between gap-2 mt-4">
+            <div class="small text-secondary">
+                Showing @RangeStart–@RangeEnd of @Filtered.Count
+            </div>
+            <div class="d-flex align-items-center gap-2">
+                <label class="small text-secondary mb-0" for="pageSize">Per page</label>
+                <select id="pageSize" class="form-select form-select-sm w-auto" value="@_pageSize" @onchange="OnPageSizeChanged">
+                    <option value="6">6</option>
+                    <option value="12">12</option>
+                    <option value="24">24</option>
+                </select>
+                <div class="btn-group">
+                    <button class="btn btn-outline-secondary btn-sm" type="button" @onclick="PrevPage" disabled="@(_page <= 1)">Prev</button>
+                    <span class="btn btn-outline-secondary btn-sm disabled">@_page / @TotalPages</span>
+                    <button class="btn btn-outline-secondary btn-sm" type="button" @onclick="NextPage" disabled="@(_page >= TotalPages)">Next</button>
+                </div>
+            </div>
+        </div>
+    }
+</div>
+
+@if (_editing is not null)
+{
+    <div class="moment-modal-backdrop" @onclick="CloseEditor"></div>
+    <div class="moment-modal-wrap" role="dialog" aria-modal="true" aria-labelledby="editMomentTitle">
+        <section class="moment-modal card shadow-lg border-0" @onclick:stopPropagation>
+            <header class="card-header bg-white border-0 d-flex justify-content-between align-items-start">
+                <div>
+                    <h3 id="editMomentTitle" class="h5 fw-semibold mb-1">Edit moment</h3>
+                    <p class="small text-secondary mb-0">Update the details and arrange its blends.</p>
+                </div>
+                <button class="btn-close" type="button" @onclick="CloseEditor" aria-label="Close"></button>
+            </header>
+            <div class="card-body">
+                <div class="mb-3">
+                    <label class="form-label fw-semibold" for="editTitle">Title <span class="text-danger">*</span></label>
+                    <input id="editTitle" class="form-control" type="text" maxlength="200" @bind="_editTitle" @bind:event="oninput" />
+                </div>
+                <div class="mb-3">
+                    <label class="form-label fw-semibold" for="editComment">Comment <span class="text-secondary fw-normal">(optional)</span></label>
+                    <textarea id="editComment" class="form-control" rows="3" maxlength="2000" @bind="_editComment"></textarea>
+                </div>
+                <div class="mb-3">
+                    <label class="form-label fw-semibold" for="editDate">Date &amp; time <span class="text-danger">*</span></label>
+                    <input id="editDate" class="form-control" type="datetime-local" @bind="_editDate" />
+                </div>
+
+                <div class="d-flex justify-content-between align-items-center mb-2">
+                    <span class="form-label fw-semibold mb-0">Blends</span>
+                    <span class="small text-secondary">Drag to reorder</span>
+                </div>
+
+                @if (_editing.Blends.Count == 0)
+                {
+                    <p class="small text-secondary">This moment has no blends.</p>
+                }
+                else
+                {
+                    <ul class="blend-edit-list list-unstyled mb-0">
+                        @foreach (var b in _editing.Blends)
+                        {
+                            var index = _editing.Blends.IndexOf(b);
+                            <li class="blend-edit-item @(_dragIndex == index ? "is-dragging" : null)"
+                                draggable="true"
+                                @ondragstart="() => OnDragStart(index)"
+                                @ondragend="OnDragEnd"
+                                @ondragover:preventDefault="true"
+                                @ondragenter="() => OnDragEnter(index)"
+                                @ondrop="() => OnDrop(index)"
+                                style="--dot:@BlendColor(b);">
+                                <span class="blend-edit-item__grip" aria-hidden="true">⠿</span>
+                                <div class="blend-edit-item__body">
+                                    <div class="blend-edit-item__name">
+                                        <span class="blend-pill__dot"></span>@b.Name
+                                    </div>
+                                    <div class="blend-edit-item__emotions">
+                                        @foreach (var c in b.Components)
+                                        {
+                                            <span class="emotion-chip" style="--chip:@PlutchikData.LevelColor(c.Emotion, c.Level);">
+                                                <span class="emotion-dot"></span>@PlutchikData.LevelName(c.Emotion, c.Level)
+                                            </span>
+                                        }
+                                    </div>
+                                </div>
+                                <button type="button" class="blend-edit-item__delete btn btn-sm btn-outline-danger"
+                                        title="Delete blend" @onclick="() => DeleteBlend(b)">
+                                    Delete
+                                </button>
+                            </li>
+                        }
+                    </ul>
+                }
+            </div>
+            <footer class="card-footer bg-white border-0 d-flex justify-content-end gap-2">
+                <button class="btn btn-outline-secondary" type="button" @onclick="CloseEditor">Cancel</button>
+                <button class="btn btn-primary" type="button" @onclick="SaveMoment"
+                        disabled="@(_saving || string.IsNullOrWhiteSpace(_editTitle))">
+                    @(_saving ? "Saving…" : "Save changes")
+                </button>
+            </footer>
+        </section>
+    </div>
+}
+
+@code {
+    private bool _loading = true;
+    private List<MomentView> _moments = [];
+
+    private string _search = string.Empty;
+    private DateTime? _from;
+    private DateTime? _to;
+    private readonly HashSet<string> _emotions = [];
+
+    private int _page = 1;
+    private int _pageSize = 12;
+
+    private MomentView? _editing;
+    private string _editTitle = string.Empty;
+    private string _editComment = string.Empty;
+    private DateTime _editDate = DateTime.Now;
+    private bool _saving;
+
+    private int? _dragIndex;
+
+    protected override async Task OnInitializedAsync() => await LoadAsync();
+
+    private async Task LoadAsync()
+    {
+        _loading = true;
+        var moments = await ApiClient.ListMomentsAsync();
+        _moments = moments.Select(MomentView.From).ToList();
+        _loading = false;
+    }
+
+    // --- Filtering / paging ------------------------------------------------------------
+
+    private bool HasActiveFilters =>
+        !string.IsNullOrWhiteSpace(_search) || _from is not null || _to is not null || _emotions.Count > 0;
+
+    private List<MomentView> Filtered
+    {
+        get
+        {
+            IEnumerable<MomentView> q = _moments;
+
+            if (!string.IsNullOrWhiteSpace(_search))
+            {
+                var term = _search.Trim();
+                q = q.Where(m =>
+                    m.Title.Contains(term, StringComparison.OrdinalIgnoreCase)
+                    || (m.Comment?.Contains(term, StringComparison.OrdinalIgnoreCase) ?? false)
+                    || m.Blends.Any(b => b.Name.Contains(term, StringComparison.OrdinalIgnoreCase)));
+            }
+
+            if (_from is not null)
+                q = q.Where(m => m.MomentLocal.Date >= _from.Value.Date);
+            if (_to is not null)
+                q = q.Where(m => m.MomentLocal.Date <= _to.Value.Date);
+
+            if (_emotions.Count > 0)
+                q = q.Where(m => m.Blends.Any(b => b.Components.Any(c => _emotions.Contains(c.Emotion))));
+
+            return q.ToList();
+        }
+    }
+
+    private int TotalPages => Math.Max(1, (int)Math.Ceiling(Filtered.Count / (double)_pageSize));
+    private List<MomentView> Paged => Filtered.Skip((_page - 1) * _pageSize).Take(_pageSize).ToList();
+    private int RangeStart => Filtered.Count == 0 ? 0 : (_page - 1) * _pageSize + 1;
+    private int RangeEnd => Math.Min(_page * _pageSize, Filtered.Count);
+
+    private void OnSearchInput(ChangeEventArgs e)
+    {
+        _search = e.Value?.ToString() ?? string.Empty;
+        _page = 1;
+    }
+
+    private void OnFromChanged(ChangeEventArgs e)
+    {
+        _from = DateTime.TryParse(e.Value?.ToString(), out var d) ? d : null;
+        _page = 1;
+    }
+
+    private void OnToChanged(ChangeEventArgs e)
+    {
+        _to = DateTime.TryParse(e.Value?.ToString(), out var d) ? d : null;
+        _page = 1;
+    }
+
+    private void ToggleEmotion(string id)
+    {
+        if (!_emotions.Add(id))
+            _emotions.Remove(id);
+        _page = 1;
+    }
+
+    private void ClearFilters()
+    {
+        _search = string.Empty;
+        _from = null;
+        _to = null;
+        _emotions.Clear();
+        _page = 1;
+    }
+
+    private void OnPageSizeChanged(ChangeEventArgs e)
+    {
+        if (int.TryParse(e.Value?.ToString(), out var size))
+            _pageSize = size;
+        _page = 1;
+    }
+
+    private void PrevPage()
+    {
+        if (_page > 1) _page--;
+    }
+
+    private void NextPage()
+    {
+        if (_page < TotalPages) _page++;
+    }
+
+    private static string FormatDate(DateTime? value) => value?.ToString("yyyy-MM-dd") ?? string.Empty;
+
+    // --- Color helpers -----------------------------------------------------------------
+
+    private static string BlendColor(BlendView b) =>
+        b.Components.Count > 0
+            ? PlutchikData.LevelColor(b.Components[0].Emotion, b.Components[0].Level)
+            : "#2563eb";
+
+    private static string AccentColor(MomentView m) =>
+        m.Blends.Count > 0 ? BlendColor(m.Blends[0]) : "#2563eb";
+
+    // --- Editing -----------------------------------------------------------------------
+
+    private void OpenEditor(MomentView m)
+    {
+        _editing = m;
+        _editTitle = m.Title;
+        _editComment = m.Comment ?? string.Empty;
+        _editDate = m.MomentLocal;
+        _dragIndex = null;
+    }
+
+    private void CloseEditor()
+    {
+        _editing = null;
+        _dragIndex = null;
+    }
+
+    private async Task SaveMoment()
+    {
+        if (_editing is null || string.IsNullOrWhiteSpace(_editTitle))
+            return;
+
+        _saving = true;
+        try
+        {
+            var utc = _editDate.ToUniversalTime();
+            await ApiClient.UpdateMomentAsync(
+                _editing.Id,
+                new EmotionMomentUpdateApiRequest(_editTitle.Trim(),
+                    string.IsNullOrWhiteSpace(_editComment) ? null : _editComment.Trim(),
+                    utc));
+
+            _editing.Title = _editTitle.Trim();
+            _editing.Comment = string.IsNullOrWhiteSpace(_editComment) ? null : _editComment.Trim();
+            _editing.MomentLocal = _editDate;
+        }
+        finally
+        {
+            _saving = false;
+        }
+
+        CloseEditor();
+    }
+
+    private async Task DeleteBlend(BlendView blend)
+    {
+        if (_editing is null)
+            return;
+
+        var confirmed = await JS.InvokeAsync<bool>("confirm", $"Delete the blend \"{blend.Name}\"? This cannot be undone.");
+        if (!confirmed)
+            return;
+
+        await ApiClient.DeleteBlendAsync(blend.Id);
+        _editing.Blends.Remove(blend);
+    }
+
+    // --- Drag & drop reorder -----------------------------------------------------------
+
+    private void OnDragStart(int index) => _dragIndex = index;
+
+    private void OnDragEnter(int index)
+    {
+        if (_editing is null || _dragIndex is null || _dragIndex == index)
+            return;
+
+        var blends = _editing.Blends;
+        var item = blends[_dragIndex.Value];
+        blends.RemoveAt(_dragIndex.Value);
+        blends.Insert(index, item);
+        _dragIndex = index;
+    }
+
+    private async Task OnDrop(int index)
+    {
+        await PersistOrder();
+        _dragIndex = null;
+    }
+
+    private void OnDragEnd() => _dragIndex = null;
+
+    private async Task PersistOrder()
+    {
+        if (_editing is null)
+            return;
+
+        await ApiClient.ReorderBlendsAsync(_editing.Id, _editing.Blends.Select(b => b.Id).ToList());
+    }
+
+    public void Dispose() { }
+
+    // --- View models -------------------------------------------------------------------
+
+    private sealed class MomentView
+    {
+        public int Id { get; init; }
+        public string Title { get; set; } = string.Empty;
+        public string? Comment { get; set; }
+        public DateTime MomentLocal { get; set; }
+        public List<BlendView> Blends { get; init; } = [];
+
+        public static MomentView From(EmotionMomentApiResponse m) => new()
+        {
+            Id = m.Id,
+            Title = m.Title,
+            Comment = m.Comment,
+            MomentLocal = m.MomentUtc.ToLocalTime(),
+            Blends = m.Blends.Select(BlendView.From).ToList()
+        };
+    }
+
+    private sealed class BlendView
+    {
+        public int Id { get; init; }
+        public string Name { get; init; } = string.Empty;
+        public List<ComponentView> Components { get; init; } = [];
+
+        public static BlendView From(EmotionProfileApiResponse b) => new()
+        {
+            Id = b.Id,
+            Name = b.Name,
+            Components = b.Components.Select(c => new ComponentView(c.Emotion, (IntensityLevel)c.Level)).ToList()
+        };
+    }
+
+    private sealed record ComponentView(string Emotion, IntensityLevel Level);
+}

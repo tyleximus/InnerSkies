@@ -28,6 +28,27 @@ public sealed class EmotionProfilesApiClient(HttpClient httpClient)
         var moments = await httpClient.GetFromJsonAsync<List<EmotionMomentApiResponse>>("api/emotionprofiles/moments", cancellationToken);
         return moments ?? [];
     }
+
+    public async Task UpdateMomentAsync(int momentId, EmotionMomentUpdateApiRequest request, CancellationToken cancellationToken = default)
+    {
+        using var response = await httpClient.PutAsJsonAsync($"api/emotionprofiles/moments/{momentId}", request, cancellationToken);
+        response.EnsureSuccessStatusCode();
+    }
+
+    public async Task DeleteBlendAsync(int blendId, CancellationToken cancellationToken = default)
+    {
+        using var response = await httpClient.DeleteAsync($"api/emotionprofiles/{blendId}", cancellationToken);
+        response.EnsureSuccessStatusCode();
+    }
+
+    public async Task ReorderBlendsAsync(int momentId, IReadOnlyList<int> blendIds, CancellationToken cancellationToken = default)
+    {
+        using var response = await httpClient.PutAsJsonAsync(
+            $"api/emotionprofiles/moments/{momentId}/blend-order",
+            new BlendOrderApiRequest(blendIds),
+            cancellationToken);
+        response.EnsureSuccessStatusCode();
+    }
 }
 
 public sealed record EmotionProfileApiRequest(string Name, IReadOnlyList<EmotionProfileApiComponentRequest> Components, int? MomentId, EmotionMomentApiRequest? NewMoment);
@@ -36,3 +57,5 @@ public sealed record EmotionProfileApiComponentRequest(string Emotion, int Level
 public sealed record EmotionProfileApiResponse(int Id, string Name, DateTime CreatedUtc, int MomentId, IReadOnlyList<EmotionProfileApiComponentResponse> Components);
 public sealed record EmotionProfileApiComponentResponse(string Emotion, int Level);
 public sealed record EmotionMomentApiResponse(int Id, string Title, string? Comment, DateTime MomentUtc, DateTime CreatedUtc, IReadOnlyList<EmotionProfileApiResponse> Blends);
+public sealed record EmotionMomentUpdateApiRequest(string Title, string? Comment, DateTime MomentUtc);
+public sealed record BlendOrderApiRequest(IReadOnlyList<int> BlendIds);

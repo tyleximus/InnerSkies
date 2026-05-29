@@ -59,6 +59,7 @@ CREATE TABLE dbo.EmotionProfiles
     Id              INT IDENTITY(1,1) NOT NULL CONSTRAINT PK_EmotionProfiles PRIMARY KEY,
     Name            NVARCHAR(200) NOT NULL,
     MomentId        INT NOT NULL,
+    SortOrder       INT NOT NULL CONSTRAINT DF_EmotionProfiles_SortOrder DEFAULT (0),
     CreatedUtc      DATETIME2(0) NOT NULL CONSTRAINT DF_EmotionProfiles_CreatedUtc DEFAULT (SYSUTCDATETIME())
 );
 

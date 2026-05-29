@@ -32,6 +32,7 @@ public sealed class EmotionProfilesController(InnerSkyDbContext db) : Controller
             return ValidationProblem("Provide only one of MomentId or NewMoment.");
 
         EmotionMomentEntity moment;
+        int sortOrder;
         if (request.MomentId is int momentId)
         {
             var existingMoment = await db.EmotionMoments.FirstOrDefaultAsync(x => x.Id == momentId, cancellationToken);
@@ -39,9 +40,15 @@ public sealed class EmotionProfilesController(InnerSkyDbContext db) : Controller
                 return ValidationProblem($"Moment '{momentId}' was not found.");
 
             moment = existingMoment;
+            var maxOrder = await db.EmotionProfiles
+                .Where(p => p.MomentId == momentId)
+                .Select(p => (int?)p.SortOrder)
+                .MaxAsync(cancellationToken);
+            sortOrder = (maxOrder ?? -1) + 1;
         }
         else
         {
+            sortOrder = 0;
             var title = string.IsNullOrWhiteSpace(request.NewMoment!.Title) ? request.Name.Trim() : request.NewMoment.Title.Trim();
             moment = new EmotionMomentEntity
             {
@@ -59,6 +66,7 @@ public sealed class EmotionProfilesController(InnerSkyDbContext db) : Controller
             
             Name = request.Name.Trim(),
             CreatedUtc = DateTime.UtcNow,
+            SortOrder = sortOrder,
             Moment = moment,
             Components = request.Components
                 .Select(c => new EmotionProfileComponentEntity
@@ -129,7 +137,6 @@ public sealed class EmotionProfilesController(InnerSkyDbContext db) : Controller
             .Include(x => x.Profiles)
                 .ThenInclude(x => x.Components)
             .OrderByDescending(x => x.MomentUtc)
-            .Take(50)
             .ToListAsync(cancellationToken);
 
         return moments.Select(m => new EmotionMomentResponse(
@@ -139,7 +146,8 @@ public sealed class EmotionProfilesController(InnerSkyDbContext db) : Controller
             m.MomentUtc,
             m.CreatedUtc,
             m.Profiles
-                .OrderByDescending(p => p.CreatedUtc)
+                .OrderBy(p => p.SortOrder)
+                .ThenBy(p => p.CreatedUtc)
                 .Select(p => new EmotionProfileResponse(
                     p.Id,
                     p.Name,
@@ -148,6 +156,67 @@ public sealed class EmotionProfilesController(InnerSkyDbContext db) : Controller
                     p.Components.Select(c => new EmotionProfileComponentResponse(c.EmotionId, c.IntensityLevel)).ToList()))
                 .ToList()
         )).ToList();
+    }
+
+    [HttpPut("moments/{id:int}")]
+    public async Task<ActionResult> UpdateMoment(int id, [FromBody] EmotionMomentUpdateRequest request, CancellationToken cancellationToken)
+    {
+        if (string.IsNullOrWhiteSpace(request.Title))
+            return ValidationProblem("Title is required.");
+        if (request.Title.Length > 200)
+            return ValidationProblem("Title must be 200 characters or fewer.");
+        if (request.Comment is { Length: > 2000 })
+            return ValidationProblem("Comment must be 2000 characters or fewer.");
+
+        var moment = await db.EmotionMoments.FirstOrDefaultAsync(x => x.Id == id, cancellationToken);
+        if (moment is null)
+            return NotFound();
+
+        moment.Title = request.Title.Trim();
+        moment.Comment = string.IsNullOrWhiteSpace(request.Comment) ? null : request.Comment.Trim();
+        moment.MomentUtc = DateTime.SpecifyKind(request.MomentUtc, DateTimeKind.Utc);
+
+        await db.SaveChangesAsync(cancellationToken);
+        return NoContent();
+    }
+
+    [HttpDelete("{id:int}")]
+    public async Task<ActionResult> DeleteBlend(int id, CancellationToken cancellationToken)
+    {
+        var profile = await db.EmotionProfiles.FirstOrDefaultAsync(x => x.Id == id, cancellationToken);
+        if (profile is null)
+            return NotFound();
+
+        db.EmotionProfiles.Remove(profile);
+        await db.SaveChangesAsync(cancellationToken);
+        return NoContent();
+    }
+
+    [HttpPut("moments/{id:int}/blend-order")]
+    public async Task<ActionResult> ReorderBlends(int id, [FromBody] BlendOrderRequest request, CancellationToken cancellationToken)
+    {
+        var moment = await db.EmotionMoments.FirstOrDefaultAsync(x => x.Id == id, cancellationToken);
+        if (moment is null)
+            return NotFound();
+
+        var profiles = await db.EmotionProfiles
+            .Where(p => p.MomentId == id)
+            .ToListAsync(cancellationToken);
+
+        var requested = request.BlendIds ?? [];
+        if (requested.Count != profiles.Count || requested.Distinct().Count() != requested.Count
+            || !requested.ToHashSet().SetEquals(profiles.Select(p => p.Id)))
+        {
+            return ValidationProblem("Blend order must list each of the moment's blends exactly once.");
+        }
+
+        var orderById = requested.Select((blendId, index) => (blendId, index))
+            .ToDictionary(x => x.blendId, x => x.index);
+        foreach (var profile in profiles)
+            profile.SortOrder = orderById[profile.Id];
+
+        await db.SaveChangesAsync(cancellationToken);
+        return NoContent();
     }
 
     private ActionResult ValidationProblem(string detail)
