@@ -7,7 +7,6 @@ public sealed class EmotionProfileEntity
     public DateTime CreatedUtc { get; set; }
     public int MomentId { get; set; }
 
-    /// <summary>Position of this blend within its moment (ascending). Set on create and rewritten on reorder.</summary>
     public int SortOrder { get; set; }
 
     public EmotionMomentEntity? Moment { get; set; }

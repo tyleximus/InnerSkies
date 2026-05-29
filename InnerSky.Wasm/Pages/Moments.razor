@@ -233,6 +233,7 @@
     private bool _saving;
 
     private int? _dragIndex;
+    private bool _blendOrderDirty;
 
     protected override async Task OnInitializedAsync() => await LoadAsync();
 
@@ -353,6 +354,7 @@
         _editComment = m.Comment ?? string.Empty;
         _editDate = m.MomentLocal;
         _dragIndex = null;
+        _blendOrderDirty = false;
     }
 
     private void CloseEditor()
@@ -375,6 +377,15 @@
                 new EmotionMomentUpdateApiRequest(_editTitle.Trim(),
                     string.IsNullOrWhiteSpace(_editComment) ? null : _editComment.Trim(),
                     utc));
+
+            if (_blendOrderDirty)
+            {
+                await ApiClient.ReorderBlendsAsync(
+                    _editing.Id,
+                    _editing.Blends.Select(b => b.Id).ToList());
+
+                _blendOrderDirty = false;
+            }
 
             _editing.Title = _editTitle.Trim();
             _editing.Comment = string.IsNullOrWhiteSpace(_editComment) ? null : _editComment.Trim();
@@ -415,11 +426,11 @@
         blends.RemoveAt(_dragIndex.Value);
         blends.Insert(index, item);
         _dragIndex = index;
+        _blendOrderDirty = true;
     }
 
     private async Task OnDrop(int index)
     {
-        await PersistOrder();
         _dragIndex = null;
     }
 

@@ -6,7 +6,7 @@
 @using InnerSky.Wasm.Models
 @using InnerSky.Wasm.Services
 
-<div class="plutchik-toolbar">
+<div class="plutchik-toolbar d-none">
     <strong>Clickable Plutchik map</strong>
     <label>
         <input @ref="_toggleEl" type="checkbox" /> show tap regions
@@ -19,7 +19,7 @@
         <svg @ref="_overlayEl" viewBox="0 0 1400 1400" role="img"
              aria-label="Clickable emotion regions" preserveAspectRatio="xMidYMid meet"></svg>
     </div>
-    <p class="plutchik-hint">
+    <p class="plutchik-hint d-none">
         Tap a dyad to seed both of its emotions at their base level. Tap a base emotion
         to reveal its mild / base / intense circles, then tap one to seed that single
         emotion at the chosen intensity. Every selection resets the panel below; refine
